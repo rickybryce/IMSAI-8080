@@ -1,5 +1,5 @@
 <h1>IMSAIMULTI</h1>
-<p>This project is for educational use, and performs multiple functions on the IMSAI 8080 LED Output port ($FF).  For testing, I'm running Z80 mode at 4MHz under CP/M 2.2.</p>
+<p>This project is for educational use, and performs multiple functions on the IMSAI 8080 LED Output port ($FF).  For testing, I'm running an IMSAI8080esp in Z80 mode at 4MHz under CP/M 2.2.</p>
 <p>I used Z80ASM to compile this by SLR systems.  Just rename the .asm file to a .z80 file to assemble.  Other compilers may require some minor coding changes, such as TASM.  TASM tends to use a "." before assembler directives such as .ORG, and .DB.  I wrote this code under WordStar 4.0 as a non-document file.</p>  
 <ul>
   <li>Switch 0 -- Port Reflector -- Displays the values of switches on the LED's as long as switch 1 is high.</li>
