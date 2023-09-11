@@ -1,0 +1,407 @@
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   1
+BINOCTHEZ80
+
+    1                   ; PROGRAM TO DISPLAY OCTAL, HEX AND BINARY for the IMSAI
+    2                   ; v1.0
+    3                   
+    4                   ; SENSOR SWITCHES AT FFH DETERMINE THE HIGH BYTE OF
+    5                   ; THE DELAY LOOP
+    6                   ; 7 AND 6 ONLY WILL EXIT TO CP/M
+    7                   ; THIS PROGRAM IS FOR THE IMSAI8080ESP
+    8                   ; Z80 COMPUTER
+    9                   
+   10                   ; THIS PROJECT SHOULD ASSEMBLE FINE USING AZ80
+   11                   ; OR Z80ASM BY SLR SYSTEMS
+   12                   ;
+   13                   ; IF YOU USE Z80ASM BY SLR SYSTEMS (1983):
+   14                   ; A .Z80 EXTENSION IS ASSUMED, SO BE SURE YOUR EXTENSION
+   15                   ; IS .Z80.  SOURCE, DESTINATION, AND LISTING ARE ALL ON
+   16                   ; DRIVE B (BBB).  /F FOR A FULL LISTING.
+   17                   ; Z80ASM FILENAME.BBB/F
+   18                   ; -- RICKY BRYCE
+   19                   
+   20                   
+   21                   
+   22         0100          ORG 0100H       ; CP/M PROGRAMS RUN AT 0100H
+   23                       
+   24                   ; DEFINE PRESETS FOR DELAY LOOP
+   25                   
+   26                   
+   27                   ; ** BEGIN HEAD **
+   28                   
+   29         0005      SYSTEM:     EQU 05H ; BDOS SYSTEM CALL FOR CP/M
+   30         0009      CONSOLE:    EQU 09H ; FUNCTION CODE FOR CONSOLE WRITE
+   31         0001      DELAYLOW:   EQU 01H ; DELAY LOW BYTE START 51H
+   32         0000      DELAYHIGH:  EQU 00H ; DELAY HIGH BYTE START 01H
+   33         00FF      SWITCHES:   EQU 0FFH ; PORT FOR SENSOR SWITCHES
+   34         00FF      LIGHTS:     EQU 0FFH ; PORT FOR LIGHTS (LEDS)
+   35         0024      TERMINATE:  EQU 24H  ; DOLLAR SIGN
+   36         000A      LFEED:      EQU 0AH  ; LINE FEED
+   37         000D      CRETURN:    EQU 0DH  ; CARRIAGE RETURN
+   38         0001      INVERTFLAG: EQU 01H  ; FOR IMSAI, INVERT LEDS
+   39                   
+   40                   ; ** END HEAD **
+   41                   
+   42                   
+   43                   ; ** BEGIN INITIALIZE **    
+   44 0100              SETUP:
+   45 0100  AF              XOR A
+   46 0101  DD 21 02AD      LD IX,DELAYTIME ; LOAD IX WITH DELAY TIME MEMORY LOCATION
+   47 0105  DD 36 00 01     LD (IX+0),DELAYLOW  ; HIGH BYTE DELAY LOOP
+   48 0109  DD 36 01 00     LD (IX+1),DELAYHIGH ; LOW BYTE DELAY LOOP
+   49 010D  3E 0D           LD A,CRETURN    ; LOAD A WITH CARRIAGE RETURN VALUE
+   50 010F  32 02E7         LD (CRLF),A     ; WRITE THIS TO CRLF
+   51 0112  3E 0A           LD A,LFEED      ; LOAD A WITH LINEFEED VALUE
+   52 0114  32 02E8         LD (CRLF+1),A   ; STORE THE NEXT CHARACTER TO CRLF
+   53 0117  3E 24           LD A,TERMINATE  ; LOAD A WITH TERMINATION CHARACTER
+   54 0119  32 02E9         LD (CRLF+2),A   ; STORE THIS VALUE TO THE CRLF STRING
+   55                   
+   56 011C              INIT: ; INITIALIZE REGISTERS AND MEMORY
+   57                   
+   58 011C  AF              XOR A           ; ZERO ACCUMULATOR
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   2
+BINOCTHEZ80
+
+   59 011D  32 02B0         LD (OCTAL),A     ; CLEAR LOW OCTAL BYTE
+   60 0120  32 02B1         LD (OCTAL+1),A     ; CLEAR HIGH OCTAL BYTE
+   61 0123  32 02AF         LD (COUNTER),A  ; START COUNTER AT ZERO
+   62 0126  32 02B2         LD (DECIMAL),A  ; START COUNTER AT ZERO
+   63 0129  32 02B3         LD (DECIMAL+1),A  ; START COUNTER AT ZERO
+   64                   
+   65                   ; ** BEGIN MAIN ROUTINE **
+   66 012C              BEGIN:
+   67 012C              BUILDDEC:               ; BUILD DECIMAL DATA
+   68                       ; FIRST DIGIT
+   69 012C  3A 02B2         LD A,(DECIMAL)      ; LOAD A WITH OCTAL VALUE
+   70 012F  E6 0F           AND 0FH             ; MASK OUT THE UPPER BITS
+   71 0131  C6 30           ADD A,30H           ; ADD 30 FOR ASCII ADJUSTMENT
+   72 0133  32 02DE         LD (MSGDEC+2),A     ; STORE THE FIRST CHARACTER
+   73                   
+   74                       ; SECOND DIGIT
+   75 0136  3A 02B2         LD A, (DECIMAL)	; LOAD A WITH DECIMAL VALUE
+   76 0139  CB 2F           SRA A ; SHIFT RIGHT 4 TIMES
+   77 013B  CB 2F           SRA A
+   78 013D  CB 2F           SRA A
+   79 013F  CB 2F           SRA A
+   80 0141  E6 0F           AND 0FH             ; DROP UPPER 4 BITS
+   81 0143  C6 30           ADD A,30H           ; ADJUST FOR ASCII
+   82 0145  32 02DD         LD (MSGDEC+1),A     ; SAVE TO NEXT BYTE
+   83                   
+   84                       ; THIRD DIGIT
+   85 0148  3A 02B3         LD A, (DECIMAL+1)     ; GET THE HIGH BYTE
+   86 014B  E6 0F           AND 0FH             ; BE SURE TO MASK ANY UPPER BITS
+   87 014D  C6 30           ADD A,30H             ; ADJUST FOR ASCII
+   88 014F  32 02DC         LD (MSGDEC),A     ; SAVE TO THE NEXT BYTE.
+   89                   
+   90                       ; ADD TERMINATION CHAR
+   91 0152  3E 24           LD A,TERMINATE      ; LOAD TERMINATION TO A
+   92 0154  32 02DF         LD (MSGDEC+3),A     ; SAVE TO NEXT BYTE -- MESSAGE BUILT
+   93                   
+   94                       ; INCREMENT DECIMAL
+   95 0157              DEC1CHAR:   ; (USING LOW NYBBLE OF L)
+   96 0157  2A 02B2         LD HL,(DECIMAL)     ; LOAD DECIMAL MEMORY TO HL
+   97 015A  23              INC HL		; INCREMENT HL
+   98 015B  22 02B2         LD (DECIMAL),HL	; STORE THE NEW VALUE BACK TO HL
+   99 015E  7D              LD A,L		; LOAD LOW BYTE TO A
+  100 015F  E6 0F           AND 0FH		; FILTER UPPER BITS
+  101 0161  FE 0A           CP 0AH		; SEE IF WE'VE REACHED A YET
+  102 0163  20 25           JR NZ, CONTDEC	; IF NOT, THEN CONTINUE
+  103 0165  2A 02B2         LD HL,(DECIMAL)	; IF SO, RELOAD HL WITH DECIMAL
+  104 0168  7D              LD A,L		; GET THE LOWER BYTE
+  105 0169  C6 06           ADD A,06H		; ADD 6 TO AVOID A-F
+  106 016B  6F              LD L,A		; STORE NEW VALUE BACK TO L
+  107 016C  22 02B2         LD (DECIMAL), HL	; STORE THE ADJUST VALUE TO MEMORY
+  108                   
+  109 016F              DEC2CHAR:   ; (USING HIGH NYBBLE OF L)
+  110 016F  2A 02B2         LD HL,(DECIMAL)      ; LOAD THE VALUE OF DECIMAL TO HL
+  111 0172  7D              LD A,L              ; LOAD L TO A
+  112 0173  E6 F0           AND 0F0H            ; MASK OUT THE LOWER NYBBLE
+  113 0175  FE A0           CP 0A0H              ; SEE IF WE'VE REACHED A0H
+  114 0177  20 11           JR NZ,CONTDEC          ; IF NOT THEN CONTINUE
+  115 0179  2E 00           LD L,00H            ; BUT IF SO, LOAD L WITH 00H
+  116 017B  24              INC H               ; THEN INCREMENT H
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   3
+BINOCTHEZ80
+
+  117 017C  22 02B2         LD (DECIMAL),HL       ; STORE THE VALUE OF HL BACK TO DECIMAL
+  118                   
+  119 017F              DEC3CHAR: ; (USING LOW NYBBLE OF H)
+  120 017F  2A 02B2         LD HL,(DECIMAL)       ; LOAD HL WITH DECIMAL
+  121 0182  7C              LD A,H              ; TRANSFER H TO A
+  122 0183  FE 03           CP 03H              ; IF IT'S 3, THEN IT'S TOO HIGH
+  123 0185  20 03           JR NZ,CONTDEC       ; IF NOT THEN WE ARE OK TO CONTINUE
+  124 0187  3E 00           LD A,00H            ; IF VALUE WAS A, LOAD 00H TO A
+  125 0189  67              LD H,A              ; THEN SET H TO ZERO
+  126                   
+  127 018A              CONTDEC:    ; NOTHING ELSE TO DO WITH DECIMAL
+  128                   
+  129                   
+  130 018A              CONTHEX:    ; BUILD HEX DATA FROM COUNTER
+  131                       ; FIRST DIGIT
+  132 018A  3A 02AF         LD A,(COUNTER)      ; LOAD A WITH OCTAL VALUE
+  133 018D  E6 0F           AND 0FH             ; MASK OUT THE UPPER BITS
+  134 018F  FE 0A           CP 0AH		; SEE IF WE'VE REACHED A YET
+  135 0191  38 02           JR C, CONTHEX2	; IF SO, THEN ONLY ADD 30H
+  136 0193  C6 07           ADD A,07H           ; GET US UP TO ASCII LETTERS
+  137                   
+  138 0195              CONTHEX2:
+  139 0195  C6 30           ADD A,30H            ; ADD 30 FOR ASCII ADJUSTMENT
+  140 0197  32 02E1         LD (MSGHEX+1),A      ; STORE THE FIRST CHARACTER
+  141                   
+  142                       ; SECOND DIGIT
+  143 019A  3A 02AF         LD A, (COUNTER)	; LOAD A WITH COUNTER
+  144 019D  CB 2F           SRA A 		; SHIFT RIGHT 4 TIMES
+  145 019F  CB 2F           SRA A
+  146 01A1  CB 2F           SRA A
+  147 01A3  CB 2F           SRA A
+  148 01A5  E6 0F           AND 0FH             ; DROP UPPER 4 BITS
+  149 01A7  FE 0A           CP 0AH		; SEE IF WE'VE REACHED A YET
+  150 01A9  38 02           JR C, CONTHEX3	; IF NOT, THEN ONLY ADD 30H
+  151 01AB  C6 07           ADD A,07H           ; GET US UP TO ASCII LETTERS
+  152                   
+  153 01AD              CONTHEX3:
+  154 01AD  C6 30           ADD A,30H           ; ADJUST FOR ASCII
+  155 01AF  32 02E0         LD (MSGHEX),A     	; SAVE TO NEXT BYTE
+  156                   
+  157                       ; ADD TERMINATION CHARACTER
+  158 01B2  3E 24           LD A,TERMINATE      ; LOAD TERMINATION CHAR TO A
+  159 01B4  32 02E2         LD (MSGHEX+2),A     ; SAVE TO NEXT BYTE -- MESSAGE BUILT
+  160                   
+  161 01B7              BUILDOCT:               ; BUILD OCTAL DATA
+  162                   ; FIRST DIGIT
+  163 01B7  3A 02B0         LD A,(OCTAL)        ; LOAD A WITH OCTAL VALUE
+  164 01BA  E6 0F           AND 0FH             ; MASK OUT THE UPPER BITS
+  165 01BC  C6 30           ADD A,30H           ; ADD 30 FOR ASCII ADJUSTMENT
+  166 01BE  32 02E5         LD (MSGOCT+2),A     ; STORE THE FIRST CHARACTER
+  167                   
+  168                       ; SECOND DIGIT
+  169 01C1  3A 02B0         LD A, (OCTAL)
+  170 01C4  CB 2F           SRA A  ; SHIFT RIGHT 4 TIMES
+  171 01C6  CB 2F           SRA A
+  172 01C8  CB 2F           SRA A
+  173 01CA  CB 2F           SRA A
+  174 01CC  E6 0F           AND 0FH		; DROP UPPER 4 BITS
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   4
+BINOCTHEZ80
+
+  175 01CE  C6 30           ADD A,30H           ; ADJUST FOR ASCII
+  176 01D0  32 02E4         LD (MSGOCT+1),A     ; SAVE TO NEXT BYTE
+  177                   
+  178                       ; THIRD DIGIT
+  179 01D3  3A 02B1         LD A, (OCTAL+1)     ; GET THE HIGH BYTE
+  180 01D6  E6 0F           AND 0FH             ; BE SURE TO MASK ANY UPPER BITS
+  181 01D8  C6 30           ADD A,30H           ; ADJUST FOR ASCII
+  182 01DA  32 02E3         LD (MSGOCT),A     	; SAVE TO THE NEXT BYTE.
+  183                   
+  184                       ; ADD TERMINATION CHARACTER
+  185 01DD  3E 24           LD A,TERMINATE      ; LOAD TERMINATION CHARACTER TO A
+  186 01DF  32 02E6         LD (MSGOCT+3),A     ; SAVE TO NEXT BYTE -- MESSAGE BUILT
+  187                   
+  188                   
+  189                       ; INCREMENT OCTAL
+  190 01E2              OCT1CHAR:               ; IF THE FIRST CHARACTER IS 8, WE NEED TO ADD 8
+  191 01E2  2A 02B0         LD HL,(OCTAL)       ; LOAD HL WITH THE LAST OCTAL VALUE
+  192 01E5  23              INC HL              ; INCREMENT THIS VALUE
+  193 01E6  22 02B0         LD (OCTAL),HL       ; THEN STORE HL BACK TO OCTAL MEMORY LOCATION
+  194 01E9  7D              LD A,L              ; LOAD THE LOW BYTE TO A
+  195 01EA  E6 0F           AND 0FH             ; MASK OUT THE UPPER NYBBLE
+  196 01EC  FE 08           CP 08H              ; COMPARE TO 8
+  197 01EE  20 1A           JR NZ,CONTOCT       ; IF NOT 8, THEN WE ARE OK... CONTINUE
+  198 01F0  2A 02B0         LD HL,(OCTAL)       ; IF 8, THEN RELOAD OCTAL MEMORY LOCATION TO HL
+  199 01F3  7D              LD A,L              ; TRANSFER L TO A
+  200 01F4  C6 08           ADD A,08H           ; ADD 8H
+  201 01F6  6F              LD L,A              ; THEN STORE BACK TO L
+  202 01F7  22 02B0         LD (OCTAL),HL       ; NOW STORE HL BACK TO THE OCTAL MEMORY LOCATION
+  203                   
+  204 01FA              OCT2CHAR:               ; NEXT, DEAL WITH THE UPPER NYBBLE
+  205 01FA  2A 02B0         LD HL,(OCTAL)       ; LOAD THE VALUE OF OCTAL TO HL
+  206 01FD  7D              LD A,L              ; LOAD L TO A
+  207 01FE  E6 F0           AND 0F0H            ; MASK OUT THE LOWER NYBBLE
+  208 0200  FE 80           CP 80H              ; SEE IF WE'VE REACHED 80H
+  209 0202  20 06           JR NZ,CONTOCT       ; IF NOT THEN CONTINUE
+  210 0204  2E 00           LD L,00H            ; BUT IF SO, LOAD L WITH 00H
+  211 0206  24              INC H               ; THEN INCREMENT H
+  212 0207  22 02B0         LD (OCTAL),HL       ; STORE THE VALUE OF HL BACK TO OCTAL
+  213                   
+  214                   
+  215 020A              CONTOCT:
+  216                   
+  217 020A              CONTBIN:    ; JUST SEND THE VALUE TO THE OUTPUT LEDS
+  218 020A  3E 01           LD A,INVERTFLAG	; SEE IF WE NEED TO INVERT
+  219 020C  B7              OR A		; CHECK A FOR ZERO
+  220 020D  C2 0217         JP NZ,INVERT	; IF NOT ZERO, THEN INVERT
+  221 0210              NOINVERT:
+  222 0210  3A 02AF         LD A,(COUNTER)	; LOAD A WITH COUNTER
+  223 0213  D3 FF           OUT (LIGHTS),A	; UPDATE LEDS
+  224 0215  18 22           JR BUILDMESSAGE     ; SKIP INVERT
+  225 0217              INVERT:
+  226 0217  3A 02AF         LD A,(COUNTER)	; LOAD COUNTER TO A
+  227 021A  EE FF           XOR 0FFH		; INVERT IT
+  228 021C  D3 FF           OUT (LIGHTS),A	; STORE TO LEDS
+  229                   
+  230                   	; OK, NOW THE FUN PART.  BULD A MESSAGE STRING
+  231                   	; FROM THE COUNTER FOR BINARY
+  232 021E  06 08           LD B,08H		; WE'LL BE SHIFTING 8 TIMES (7-0)
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   5
+BINOCTHEZ80
+
+  233 0220  21 02D3         LD HL,MSGBIN  	; LOAD HL WITH OUR STARTING POINT
+  234 0223  3A 02AF         LD A,(COUNTER)
+  235 0226  57              LD D,A		; LOAD D WITH CURRENT COUNTS
+  236                       
+  237 0227              BINLOOP:
+  238 0227  CB 22           SLA D		; SHIFT D LEFT
+  239 0229  38 05           JR C,BINHIGH        ; IF WE HAVE A CARRY, BIT WAS HIGH
+  240 022B              BINLOW:    ; OTHERWISE, BIT WAS LOW
+  241 022B  3E 30           LD A,30H		; ASCII ZERO
+  242 022D  77              LD (HL),A		; SAVE TO MEMORY
+  243 022E  18 03           JR BINJUMP
+  244 0230              BINHIGH:
+  245 0230  3E 31           LD A,31H		; ASCII ONE
+  246 0232  77              LD (HL),A		; SAVE TO MEMORY
+  247 0233              BINJUMP:
+  248 0233  23              INC HL		; INCREMENT HL
+  249 0234  10 F1           DJNZ BINLOOP	; DECREMENT B, AND JUMP IF NOT ZERO
+  250                   
+  251 0236  3E 24           LD A,TERMINATE      ; LOAD TERMINATE CHARACTER
+  252 0238  77              LD (HL),A		; STORE TERMINATION TO NEXT MEMORY LOCATION
+  253                   
+  254                   
+  255 0239              BUILDMESSAGE:
+  256                       ; DECIMAL
+  257 0239  11 02CC         LD      DE, DECSPELL    ; LOAD DE WITH DECIMAL TEXT
+  258 023C  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  259 023E  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  260 0241  11 02DC         LD      DE, MSGDEC      ; LOAD DE WITH DEC STRING
+  261 0244  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  262 0246  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  263                    
+  264                      ; HEX
+  265 0249  11 02BE         LD      DE, HEXSPELL    ; LOAD DE WITH HEX TEXT
+  266 024C  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  267 024E  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  268 0251  11 02E0         LD      DE, MSGHEX      ; LOAD DE WITH HEX STRING
+  269 0254  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  270 0256  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  271                   
+  272                       ; OCTAL
+  273 0259  11 02B7         LD      DE, OCTSPELL    ; LOAD DE WITH OCT TEXT
+  274 025C  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  275 025E  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  276 0261  11 02E3         LD      DE, MSGOCT      ; LOAD DE WITH OCTAL STRING
+  277 0264  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  278 0266  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  279                   
+  280                       ; BINARY
+  281 0269  11 02C5         LD	DE, BINSPELL	; LOAD DE WITH BIN TEXT
+  282 026C  0E 09           LD C,CONSOLE	; FUNCTION CODE FOR CONSOLE WRITE
+  283 026E  CD 0005         CALL SYSTEM		; BDOS SYSTEM CALL
+  284 0271  11 02D3         LD DE, MSGBIN	; GET THE BINARY MESSAGE
+  285 0274  0E 09           LD C,CONSOLE	; FUNCTION CODE FOR CONSOLE WRITE
+  286 0276  CD 0005         CALL SYSTEM		; BDOS SYSTEM CALL
+  287                   
+  288                   
+  289                       ; CRLF
+  290 0279  11 02E7         LD      DE, CRLF        ; LOAD DE WITH CRLF TEXT
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   6
+BINOCTHEZ80
+
+  291 027C  0E 09           LD      C,CONSOLE       ; FUNCTION CODE TO FOR CONSOLE WRITE
+  292 027E  CD 0005         CALL    SYSTEM          ; CALL BDOS TO PRINT STRING
+  293                   
+  294                       ; UPDATE COUNTER
+  295 0281  CD 0292         CALL DELAY          ; START BY RUNNING A DELAY LOOP
+  296 0284  3A 02AF         LD A,(COUNTER)      ; LOAD A WITH THE COUNTER TO DISPLAY
+  297 0287  3C              INC A               ; INCREMENT A
+  298 0288  32 02AF         LD (COUNTER),A      ; THEN STORE A TO THE COUNTER MEMORY LOCATION
+  299 028B  B7              OR A
+  300 028C  CA 011C         JP Z, INIT          ; RE-INITIALIZE
+  301                   
+  302 028F  C3 012C         JP BEGIN            ; START OVER
+  303                   
+  304                   
+  305                       
+  306                   ; ** END MAIN ROUTINE **
+  307                   
+  308                   
+  309                   ; ** BEGIN DELAY ROUTINE **
+  310 0292              DELAY:
+  311                       ; COMMENT OUT THE NEXT TWO INSTRUCTIONS IF YOU DO NOT HAVE
+  312                       ; AN I/O MODULE
+  313 0292  DB FF           IN A,(SWITCHES)       ; LOAD 8 WITH VALUE OF SWITCHES
+  314 0294  FE C0           CP A,0C0H             ; SEE IF SWITCH 7 AND 6 ARE ON
+  315 0296  CA 0000         JP Z, 0000H           ; IF SO, EXIT TO CPM
+  316 0299  32 02AE         LD (DELAYTIME+1),A	  ; STORE THIS TO HIGH BYTE OF DELAY
+  317                                             ; THIS WILL SLOW THE LOOP
+  318 029C  ED 4B 02AD      LD BC,(DELAYTIME)     ; LOAD BC WITH DELAYTIME
+  319                   
+  320 02A0              DELAY1:
+  321 02A0  C5              PUSH BC
+  322 02A1  06 40           LD B,40H
+  323 02A3              ADDDLY:
+  324 02A3  10 FE           DJNZ ADDDLY
+  325 02A5  C1              POP BC
+  326 02A6  0B              DEC BC              ; DECREMENT BC
+  327 02A7  79              LD A,C              ; LOAD A FROM C
+  328 02A8  B0              OR B                ; SEE IF WE'VE REACHED ZERO YET
+  329 02A9  C2 02A0         JP NZ,DELAY1        ; IF NOT, THEN CONTINUE LOOP
+  330                   
+  331                   
+  332 02AC  C9              RET                 ; RETURN TO MAIN
+  333                   
+  334                   ; ** END DELAY ROUTINE **
+  335                   
+  336                   
+  337                   
+  338                   ; ** BEGIN FOOTER (DEFINE BYTES (DB)) **
+  339                       ;ORG 0300H		; AVOID CROSSING PAGE BOUNDARY
+  340                       
+  341                   ; ** BEGIN DATA TABLES (ARRAYS) **
+  342 02AD              DELAYTIME: 		; FOR DELAY LOOPS
+  343 02AD  00 00           DB 00H,00H 	; THESE WILL BE OVERWRITTEN WITH
+  344                   		;CONSTANTS DEFINED IN HEADER
+  345                   				
+  346 02AF              COUNTER:        ; VALUE TO BE DISPLAYED ON LEDS AND RIGHTMOST 2 DIGITS
+  347 02AF  00              DB 00H
+  348                   
+Z80ASM SuperFast Relocating Macro Assembler     	    Z80ASM 1.32 Page   7
+BINOCTHEZ80
+
+  349 02B0              OCTAL:          ; VALUE TO BE DISPLAYED ON LEFTMOST 4 DIGITS
+  350 02B0  00 00           DB 00H,00H
+  351 02B2              DECIMAL:
+  352 02B2  00 00 00        DB 00H,00H,00H
+  353 02B5              HEXADECIMAL:
+  354 02B5  00 00           DB 00H, 00H
+  355 02B7              OCTSPELL:
+  356 02B7  20 4F 43 54     DB " OCT: $"
+  357 02BE              HEXSPELL:
+  358 02BE  20 48 45 58     DB " HEX: $"
+  359 02C5              BINSPELL:
+  360 02C5  20 42 49 4E     DB " BIN: $"
+  361 02CC              DECSPELL:
+  362 02CC  20 44 45 43     DB " DEC: $"
+  363 02D3              MSGBIN:
+  364 02D3  00 00 00 00     DB 00H,00H,00H,00H,00H,00H,00H,00H,24H
+  365 02DC              MSGDEC:
+  366 02DC  00 00 00 24     DB 00H,00H,00H,24H
+  367 02E0              MSGHEX:
+  368 02E0  00 00 24        DB 00H,00H,24H
+  369 02E3              MSGOCT:
+  370 02E3  00 00 00 24     DB 00H,00H,00H,24H
+  371 02E7              CRLF:
+  372 02E7  0A 0D 24        DB 0AH,0DH,24H
+  373                   				
+  374                   				
+  375                   				
+  376                   ; ** END DATA TABLES (ARRAYS) **  
+  377                   
+  378                   ; ** END FOOTER (DEFINE BYTES (DB)) **
+  379                   
+  380                       END
+ 0 Error(s) Detected.
+ 490 Absolute Bytes. 50 Symbols Detected.
+ OCT: $"
+  357 02BE              HEXSPELL:
+  358 02BE  20 48 45 58     DB " HEX: $"
+  359 02C5        
